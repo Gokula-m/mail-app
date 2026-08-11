@@ -1,10 +1,14 @@
 const express = require('express');
 const pool = require('./db/pool');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Temporary test route to prove the DB connection works
+app.use(express.json()); // parses incoming JSON bodies into req.body
+
+app.use('/api/auth', authRoutes);
+
 app.get('/api/health', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
