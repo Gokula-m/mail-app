@@ -45,4 +45,46 @@ async function register(req, res) {
   }
 }
 
-module.exports = { register };
+async function login(req, res) {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  try {
+    // Look up the user by email
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+
+    // Generic error for BOTH "no such user" and "wrong password" — prevents enumeration
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const user = result.rows[0];
+
+    if (!user.is_active) {
+      return res.status(403).json({ error: 'This account has been deactivated.' });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password_hash);
+
+    if (!passwordMatches) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    // Credentials verified — session creation comes in the next step
+    res.json({
+      message: 'Login successful (session not yet implemented).',
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }
+    });
+
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+}
+
+module.exports = { register, login };
+
+// module.exports = { register };
