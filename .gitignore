@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Environment variables (secrets)
+.env
+
+# Uploaded files (user-generated, not source code)
+backend/uploads/
+
+# Build output
+frontend/dist/
+
+# OS/editor junk
+.DS_Store
