@@ -74,8 +74,15 @@ async function login(req, res) {
     }
 
     // Credentials verified — session creation comes in the next step
+    // res.json({
+    //   message: 'Login successful (session not yet implemented).',
+    //   user: { id: user.id, name: user.name, email: user.email, role: user.role }
+    // });
+    // Credentials verified — create the session
+    req.session.userId = user.id;
+
     res.json({
-      message: 'Login successful (session not yet implemented).',
+      message: 'Login successful.',
       user: { id: user.id, name: user.name, email: user.email, role: user.role }
     });
 
