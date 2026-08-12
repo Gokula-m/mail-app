@@ -82,4 +82,49 @@ async function getSent(req, res) {
   }
 }
 
-module.exports = { sendEmail, getInbox, getSent };
+async function getEmailById(req, res) {
+  const userId = req.session.userId;
+  const emailId = req.params.id;
+
+  try {
+    const result = await pool.query(
+      `SELECT e.*, 
+              su.name AS sender_name, su.email AS sender_email,
+              ru.name AS receiver_name, ru.email AS receiver_email
+       FROM emails e
+       JOIN users su ON su.id = e.sender_id
+       JOIN users ru ON ru.id = e.receiver_id
+       WHERE e.id = $1`,
+      [emailId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Email not found.' });
+    }
+
+    const email = result.rows[0];
+
+    // AUTHORIZATION CHECK — this is the core of this step
+    const isSender = email.sender_id === userId;
+    const isReceiver = email.receiver_id === userId;
+
+    if (!isSender && !isReceiver) {
+      return res.status(403).json({ error: 'You do not have permission to view this email.' });
+    }
+
+    // If the receiver is opening it, mark it as read
+    if (isReceiver && !email.is_read) {
+      await pool.query('UPDATE emails SET is_read = true WHERE id = $1', [emailId]);
+      email.is_read = true;
+    }
+
+    res.json({ email });
+
+  } catch (err) {
+    console.error('Get email by id error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+}
+
+module.exports = { sendEmail, getInbox, getSent, getEmailById };
+
