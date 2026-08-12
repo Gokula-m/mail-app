@@ -42,4 +42,44 @@ async function sendEmail(req, res) {
   }
 }
 
-module.exports = { sendEmail };
+async function getInbox(req, res) {
+  const userId = req.session.userId;
+
+  try {
+    const result = await pool.query(
+      `SELECT e.id, e.subject, e.body, e.is_read, e.status, e.created_at,
+              u.name AS sender_name, u.email AS sender_email
+       FROM emails e
+       JOIN users u ON u.id = e.sender_id
+       WHERE e.receiver_id = $1 AND e.receiver_deleted = false
+       ORDER BY e.created_at DESC`,
+      [userId]
+    );
+    res.json({ emails: result.rows });
+  } catch (err) {
+    console.error('Get inbox error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+}
+
+async function getSent(req, res) {
+  const userId = req.session.userId;
+
+  try {
+    const result = await pool.query(
+      `SELECT e.id, e.subject, e.body, e.is_read, e.status, e.created_at,
+              u.name AS receiver_name, u.email AS receiver_email
+       FROM emails e
+       JOIN users u ON u.id = e.receiver_id
+       WHERE e.sender_id = $1 AND e.sender_deleted = false
+       ORDER BY e.created_at DESC`,
+      [userId]
+    );
+    res.json({ emails: result.rows });
+  } catch (err) {
+    console.error('Get sent error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+}
+
+module.exports = { sendEmail, getInbox, getSent };
