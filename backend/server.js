@@ -27,6 +27,10 @@ app.use(session({
 
 app.use('/api/auth', authRoutes);
 
+const emailRoutes = require('./routes/emailRoutes');
+// ...
+app.use('/api/emails', emailRoutes);
+
 app.get('/api/health', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
