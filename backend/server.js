@@ -3,6 +3,8 @@ const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const pool = require('./db/pool');
 const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const emailRoutes = require('./routes/emailRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -11,8 +13,8 @@ app.use(express.json());
 
 app.use(session({
   store: new pgSession({
-    pool: pool,           // reuse our existing connection pool
-    tableName: 'session',  // connect-pg-simple auto-creates this table
+    pool: pool,
+    tableName: 'session',
     createTableIfMissing: true
   }),
   secret: process.env.SESSION_SECRET,
@@ -20,16 +22,14 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false,       // will become true in production (HTTPS only)
-    maxAge: 1000 * 60 * 60 * 24 // 24 hours
+    secure: false,
+    maxAge: 1000 * 60 * 60 * 24
   }
 }));
 
 app.use('/api/auth', authRoutes);
-
-const emailRoutes = require('./routes/emailRoutes');
-// ...
 app.use('/api/emails', emailRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {

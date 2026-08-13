@@ -80,6 +80,7 @@ async function login(req, res) {
     // });
     // Credentials verified — create the session
     req.session.userId = user.id;
+    req.session.role = user.role; 
 
     res.json({
       message: 'Login successful.',
@@ -91,7 +92,17 @@ async function login(req, res) {
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 }
+function logout(req, res) {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ error: 'Could not log out. Please try again.' });
+    }
+    res.clearCookie('connect.sid');
+    res.json({ message: 'Logged out successfully.' });
+  });
+}
 
-module.exports = { register, login };
+module.exports = { register, login , logout };
 
 // module.exports = { register };
