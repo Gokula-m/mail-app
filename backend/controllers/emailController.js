@@ -2,7 +2,7 @@ const pool = require('../db/pool');
 
 async function sendEmail(req, res) {
   const senderId = req.session.userId;
-  const { receiverEmail, subject, body } = req.body;
+  const { receiverEmail, subject, body, expiresInHours } = req.body;
 
   if (!receiverEmail || !subject || !body) {
     return res.status(400).json({ error: 'Recipient, subject, and body are all required.' });
@@ -19,16 +19,20 @@ async function sendEmail(req, res) {
       return res.status(400).json({ error: 'You cannot send an email to yourself.' });
     }
 
+    let expiresAt = null;
+    if (expiresInHours) {
+      expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+    }
+
     const result = await pool.query(
-      `INSERT INTO emails (sender_id, receiver_id, subject, body)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, sender_id, receiver_id, subject, body, status, created_at`,
-      [senderId, receiverId, subject, body]
+      `INSERT INTO emails (sender_id, receiver_id, subject, body, expires_at)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, sender_id, receiver_id, subject, body, status, expires_at, created_at`,
+      [senderId, receiverId, subject, body, expiresAt]
     );
 
     const email = result.rows[0];
 
-    // NEW: if a file was uploaded, save its metadata
     if (req.file) {
       await pool.query(
         `INSERT INTO attachments (email_id, file_name, file_path, file_type, file_size)
@@ -113,6 +117,13 @@ async function getEmailById(req, res) {
 
     if (!isSender && !isReceiver) {
       return res.status(403).json({ error: 'You do not have permission to view this email.' });
+    }
+    if (email.status === 'RECALLED') {
+      return res.status(403).json({ error: 'This email has been recalled and is no longer accessible.' });
+    }
+    // NEW: expiration check
+    if (email.expires_at && new Date(email.expires_at) < new Date()) {
+      return res.status(403).json({ error: 'This email has expired and is no longer accessible.' });
     }
 
     // If the receiver is opening it, mark it as read
@@ -263,6 +274,9 @@ async function downloadAttachment(req, res) {
 
     if (att.status === 'RECALLED') {
       return res.status(403).json({ error: 'This email has been recalled. Attachment is no longer accessible.' });
+    }
+     if (att.expires_at && new Date(att.expires_at) < new Date()) {
+      return res.status(403).json({ error: 'This email has expired. Attachment is no longer accessible.' });
     }
 
     res.download(att.file_path, att.file_name);
