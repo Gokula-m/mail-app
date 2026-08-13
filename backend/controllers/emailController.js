@@ -236,8 +236,44 @@ async function replyToEmail(req, res) {
     res.status(500).json({ error: 'Something went wrong.' });
   }
 }
+async function downloadAttachment(req, res) {
+  const userId = req.session.userId;
+  const attachmentId = req.params.id;
+
+  try {
+    const result = await pool.query(
+      `SELECT a.*, e.sender_id, e.receiver_id, e.status
+       FROM attachments a
+       JOIN emails e ON e.id = a.email_id
+       WHERE a.id = $1`,
+      [attachmentId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Attachment not found.' });
+    }
+
+    const att = result.rows[0];
+    const isSender = att.sender_id === userId;
+    const isReceiver = att.receiver_id === userId;
+
+    if (!isSender && !isReceiver) {
+      return res.status(403).json({ error: 'You do not have permission to access this file.' });
+    }
+
+    if (att.status === 'RECALLED') {
+      return res.status(403).json({ error: 'This email has been recalled. Attachment is no longer accessible.' });
+    }
+
+    res.download(att.file_path, att.file_name);
+
+  } catch (err) {
+    console.error('Download error:', err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+}
 
 module.exports = { 
   sendEmail, getInbox, getSent, getEmailById, 
-  markRead, markUnread, deleteEmail, replyToEmail 
+  markRead, markUnread, deleteEmail, replyToEmail , downloadAttachment
 };

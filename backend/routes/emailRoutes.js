@@ -3,7 +3,7 @@ const router = express.Router();
 const requireAuth = require('../middleware/requireAuth');
 const { 
   sendEmail, getInbox, getSent, getEmailById, 
-  markRead, markUnread, deleteEmail, replyToEmail 
+  markRead, markUnread, deleteEmail, replyToEmail , downloadAttachment
 } = require('../controllers/emailController');
 const upload = require('../config/multerConfig');
 
@@ -15,5 +15,6 @@ router.patch('/:id/read', requireAuth, markRead);
 router.patch('/:id/unread', requireAuth, markUnread);
 router.delete('/:id', requireAuth, deleteEmail);
 router.post('/:id/reply', requireAuth, replyToEmail);
+router.get('/attachments/:id/download', requireAuth, downloadAttachment);
 
 module.exports = router;
