@@ -1,4 +1,5 @@
 const pool = require('../db/pool');
+const { generateSummary } = require('../services/aiService');
 
 async function sendEmail(req, res) {
   const senderId = req.session.userId;
@@ -33,6 +34,13 @@ async function sendEmail(req, res) {
 
     const email = result.rows[0];
 
+        // Generate and cache the AI summary (non-blocking failure — email still sends if this fails)
+    const summary = await generateSummary(subject, body);
+    if (summary) {
+      await pool.query('UPDATE emails SET summary = $1 WHERE id = $2', [summary, email.id]);
+      email.summary = summary;
+    }
+
     if (req.file) {
       await pool.query(
         `INSERT INTO attachments (email_id, file_name, file_path, file_type, file_size)
@@ -54,7 +62,7 @@ async function getInbox(req, res) {
 
   try {
     const result = await pool.query(
-      `SELECT e.id, e.subject, e.body, e.is_read, e.status, e.created_at,
+      `SELECT e.id, e.summary, e.subject, e.body, e.is_read, e.status, e.created_at,
               u.name AS sender_name, u.email AS sender_email
        FROM emails e
        JOIN users u ON u.id = e.sender_id
