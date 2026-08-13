@@ -1,28 +1,20 @@
 const pool = require('../db/pool');
 
 async function sendEmail(req, res) {
-  const senderId = req.session.userId; // trusted — from the session, never from req.body
+  const senderId = req.session.userId;
   const { receiverEmail, subject, body } = req.body;
 
-  // Validation
   if (!receiverEmail || !subject || !body) {
     return res.status(400).json({ error: 'Recipient, subject, and body are all required.' });
   }
 
   try {
-    // Confirm the receiver actually exists (this is our "internal-only" rule from earlier)
-    const receiverResult = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [receiverEmail]
-    );
-
+    const receiverResult = await pool.query('SELECT id FROM users WHERE email = $1', [receiverEmail]);
     if (receiverResult.rows.length === 0) {
       return res.status(404).json({ error: 'Recipient not found. They must be a registered user.' });
     }
-
     const receiverId = receiverResult.rows[0].id;
 
-    // Prevent sending an email to yourself being confusing — optional but good practice
     if (receiverId === senderId) {
       return res.status(400).json({ error: 'You cannot send an email to yourself.' });
     }
@@ -34,7 +26,18 @@ async function sendEmail(req, res) {
       [senderId, receiverId, subject, body]
     );
 
-    res.status(201).json({ message: 'Email sent successfully.', email: result.rows[0] });
+    const email = result.rows[0];
+
+    // NEW: if a file was uploaded, save its metadata
+    if (req.file) {
+      await pool.query(
+        `INSERT INTO attachments (email_id, file_name, file_path, file_type, file_size)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [email.id, req.file.originalname, req.file.path, req.file.mimetype, req.file.size]
+      );
+    }
+
+    res.status(201).json({ message: 'Email sent successfully.', email });
 
   } catch (err) {
     console.error('Send email error:', err);

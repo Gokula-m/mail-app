@@ -5,8 +5,9 @@ const {
   sendEmail, getInbox, getSent, getEmailById, 
   markRead, markUnread, deleteEmail, replyToEmail 
 } = require('../controllers/emailController');
+const upload = require('../config/multerConfig');
 
-router.post('/', requireAuth, sendEmail);
+router.post('/', requireAuth, upload.single('attachment'), sendEmail);
 router.get('/inbox', requireAuth, getInbox);
 router.get('/sent', requireAuth, getSent);
 router.get('/:id', requireAuth, getEmailById);
