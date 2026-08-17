@@ -9,14 +9,10 @@ async function register(req, res) {
     return res.status(400).json({ error: 'Name, email, and password are all required.' });
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ error: 'Please provide a valid email address.' });
-  }
-
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
-  }
+const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+if (!passwordRegex.test(password)) {
+  return res.status(400).json({ error: 'Password must be at least 8 characters and include a number and a special character.' });
+}
 
   try {
     // 2. Check for duplicate email
@@ -102,7 +98,16 @@ function logout(req, res) {
     res.json({ message: 'Logged out successfully.' });
   });
 }
-
-module.exports = { register, login , logout };
+async function getMe(req, res) {
+  try {
+    const result = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [req.session.userId]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found.' });
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    console.error('Get me error:', err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+}
+module.exports = { register, login, logout, getMe };
 
 // module.exports = { register };
