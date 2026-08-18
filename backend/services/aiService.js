@@ -1,5 +1,22 @@
+function fallbackSummary(subject, body) {
+  if (body && body.trim()) {
+    const text = body.trim().replace(/\s+/g, ' ');
+    const firstSentence = text.split(/[.!?]/)[0];
+    if (firstSentence && firstSentence.length <= 100) {
+      return firstSentence;
+    }
+    const words = text.split(' ').slice(0, 15).join(' ');
+    return words ? `${words}...` : subject;
+  }
+  return subject || 'No summary available';
+}
+
 async function generateSummary(subject, body) {
   try {
+    if (!process.env.GROQ_API_KEY) {
+      return fallbackSummary(subject, body);
+    }
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -7,7 +24,7 @@ async function generateSummary(subject, body) {
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'groq/compound-mini',
         messages: [
           {
             role: 'system',
@@ -24,20 +41,26 @@ async function generateSummary(subject, body) {
     });
 
     if (!response.ok) {
-      console.error('Groq API error:', response.status);
-      return null; // fail gracefully — don't block the email from sending
+      console.error('Groq API status:', response.status);
+      return fallbackSummary(subject, body);
     }
 
     const data = await response.json();
-    return data.choices[0].message.content.trim();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    return content ? content.replace(/^\*\*Summary:\*\*\s*/i, '') : fallbackSummary(subject, body);
 
   } catch (err) {
-    console.error('AI summary generation failed:', err);
-    return null;
+    console.error('AI summary generation failed:', err.message);
+    return fallbackSummary(subject, body);
   }
 }
+
 async function generateQuickReplies(subject, body) {
   try {
+    if (!process.env.GROQ_API_KEY) {
+      return defaultReplies();
+    }
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -45,7 +68,7 @@ async function generateQuickReplies(subject, body) {
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'groq/compound-mini',
         messages: [
           {
             role: 'system',
@@ -60,11 +83,12 @@ async function generateQuickReplies(subject, body) {
 
     if (!response.ok) return defaultReplies();
     const data = await response.json();
-    const raw = data.choices[0].message.content.trim();
-    const parsed = JSON.parse(raw);
+    const raw = data.choices?.[0]?.message?.content?.trim() || '';
+    const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
     return Array.isArray(parsed) && parsed.length ? parsed.slice(0, 3) : defaultReplies();
   } catch (err) {
-    console.error('Quick replies generation failed:', err);
+    console.error('Quick replies generation failed:', err.message);
     return defaultReplies();
   }
 }
@@ -74,4 +98,5 @@ function defaultReplies() {
 }
 
 module.exports = { generateSummary, generateQuickReplies };
+
 

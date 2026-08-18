@@ -1,0 +1,6 @@
+/* Avoid broken legacy emoji glyphs and use consistent neutral marks. */
+.sidebar-icon{font-size:0}.sidebar-icon::after{content:'?';font-size:22px;line-height:1;color:currentColor}.sidebar-link.active .sidebar-icon::after{content:'?'}
+.sidebar-compose span:first-child{font-size:0!important}.sidebar-compose span:first-child::after{content:'+';font-size:21px;line-height:1}
+.topbar-search-bar>span{font-size:0!important}.topbar-search-bar>span::after{content:'?';font-size:20px;line-height:1}
+.topbar-actions .topbar-icon-btn{font-size:0}.topbar-actions .topbar-icon-btn::after{content:'?';font-size:18px;line-height:1}
+.email-star{font-size:0}.email-star::after{content:'?';font-size:20px;line-height:1}

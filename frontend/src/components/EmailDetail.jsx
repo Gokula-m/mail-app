@@ -56,17 +56,19 @@ export default function EmailDetail({ emailId, onDeleted }) {
 
   return (
     <div>
-      <div className="email-detail" style={{marginBottom: '20px'}}>
-        <h2>{email.subject}</h2>
+      <div className="email-detail">
+        <div className="email-detail-header">
+        <h2>{email.subject || '(No subject)'}</h2>
         <p className="email-detail-meta mono">From: {email.sender_name} ({email.sender_email})</p>
         <p className="email-detail-meta mono">To: {email.receiver_name} ({email.receiver_email})</p>
-        {email.summary && <p className="email-detail-summary">{email.summary}</p>}
-        <p className="email-detail-body">{renderContent(email.body, isRecalledTop, isExpiredTop)}</p>
         <div className="btn-row">
           <button className="btn-danger" onClick={handleDelete} title="Move this conversation to Bin">Delete</button>
           <button className="btn-secondary" onClick={handleRecall} title="Revoke access to this email for the recipient">Recall</button>
           <Link to={`/emails/${emailId}/report`} className="btn-secondary" style={{textDecoration: 'none'}} title="Flag this email for admin review">Report</Link>
         </div>
+        </div>
+        {email.summary && <p className="email-detail-summary">{email.summary}</p>}
+        <p className="email-detail-body">{renderContent(email.body, isRecalledTop, isExpiredTop)}</p>
       </div>
 
       <div className="thread-container">

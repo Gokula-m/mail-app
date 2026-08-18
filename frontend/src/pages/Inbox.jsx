@@ -1,22 +1,30 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
+import EmailDetail from '../components/EmailDetail';
 
 export default function Inbox() {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
+  const [searchParams] = useSearchParams();
+  const searchQuery = searchParams.get('search') || '';
 
   const loadInbox = () => {
+    setLoading(true);
     api.get('/emails/inbox')
-      .then(res => setEmails(res.data.emails || []))
+      .then(res => {
+        const nextEmails = res.data.emails || [];
+        setEmails(nextEmails);
+        setSelectedId(current => nextEmails.some(email => email.id === current) ? current : nextEmails[0]?.id || null);
+      })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { loadInbox(); }, []);
 
-  if (loading) return <p>Loading inbox...</p>;
+  if (loading) return <p style={{ padding: '24px' }}>Loading inbox...</p>;
 
   // Sort latest/newest first
   const sortedEmails = [...emails].sort((a, b) => {
@@ -25,12 +33,14 @@ export default function Inbox() {
     return timeB - timeA;
   });
 
-  const unreadCount = sortedEmails.filter(e => !e.is_read).length;
-  const filtered = sortedEmails.filter(e =>
-    (e.subject || '').toLowerCase().includes(search.toLowerCase()) ||
-    (e.sender_name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (e.summary || e.body || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = sortedEmails.filter(e => {
+    const term = searchQuery.toLowerCase();
+    return (
+      (e.subject || '').toLowerCase().includes(term) ||
+      (e.sender_name || '').toLowerCase().includes(term) ||
+      (e.summary || e.body || '').toLowerCase().includes(term)
+    );
+  });
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -43,62 +53,26 @@ export default function Inbox() {
   };
 
   return (
-    <div>
-      <h1 className="page-title">Inbox</h1>
-      <div className="stats-row">
-        <div className="stat-card">
-          <div className="stat-number">{emails.length}</div>
-          <div className="stat-label">Total Conversations</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number" style={{ color: 'var(--accent)' }}>{unreadCount}</div>
-          <div className="stat-label">Unread</div>
+    <section className="mail-workspace" aria-label="Inbox">
+      <div className="mail-list-pane">
+        <header className="mail-list-header">
+          <h1>Inbox</h1>
+          <div><span className="mail-list-header-meta">{filtered.length} messages</span> <button className="refresh-button" type="button" onClick={loadInbox}>Refresh</button></div>
+        </header>
+        <div className="mail-list-scroll">
+          {filtered.length === 0 ? <p className="empty-state">{searchQuery ? 'No messages match your search.' : 'No emails in your inbox.'}</p> : filtered.map(email => (
+            <button type="button" key={email.id} className={`mail-item ${selectedId === email.id ? 'selected' : ''} ${!email.is_read ? 'unread' : ''}`} onClick={() => setSelectedId(email.id)} aria-pressed={selectedId === email.id}>
+              <div className="mail-item-top"><span className="mail-item-sender">{email.sender_name || email.sender_email}</span><time className="mail-item-date">{formatDate(email.created_at || email.timestamp)}</time></div>
+              <div className="mail-item-subject">{email.subject || '(No subject)'}</div>
+              <div className="mail-item-snippet">{email.summary || email.body || 'No preview available.'}</div>
+            </button>
+          ))}
         </div>
       </div>
-
-      <input
-        className="search-input"
-        placeholder="Search mail by sender, subject, or content..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-      />
-
-      {filtered.length === 0 ? (
-        <div className="email-list"><p className="empty-state">No emails found.</p></div>
-      ) : (
-        <ul className="email-list">
-          {filtered.map(email => (
-            <li key={email.id}>
-              <Link to={`/emails/${email.id}`} className={`email-row ${!email.is_read ? 'unread-row' : ''}`}>
-                <div className="avatar">{email.sender_name?.[0]?.toUpperCase() || 'U'}</div>
-                
-                <div className="email-sender-col">
-                  {email.sender_name}
-                </div>
-
-                <div className="email-body-col">
-                  <span className={`email-subject-text ${!email.is_read ? 'unread' : ''}`}>
-                    {!email.is_read && <span className="unread-dot"></span>}
-                    {email.subject || '(No subject)'}
-                  </span>
-                  {(email.summary || email.body) && (
-                    <span className="email-snippet-text">
-                      — {email.summary || email.body}
-                    </span>
-                  )}
-                </div>
-
-                <div className="email-date-col mono">
-                  {email.status === 'RECALLED' && (
-                    <span className="badge badge-recalled" style={{ marginRight: '8px' }}>Recalled</span>
-                  )}
-                  {formatDate(email.created_at || email.timestamp)}
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      <div className="mail-detail-pane">
+        {selectedId ? <EmailDetail emailId={selectedId} onDeleted={loadInbox} /> : <div className="mail-empty-detail"><div><strong>Select a message</strong>Choose an email from the inbox to read it here.</div></div>}
+      </div>
+    </section>
   );
-}
+}
+
